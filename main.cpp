@@ -1,9 +1,3 @@
-// Copyright
-// Computação Gráfica
-// URI Santiago
-// Professor Laurence
-
-// AULA 9: habilita o stb_image, usado para decodificar as texturas do modelo.
 #define STB_IMAGE_IMPLEMENTATION
 
 #include <GL/glew.h>
@@ -16,7 +10,6 @@
 #include <sstream>
 
 #include "font.h"
-// AULA 9 e 10: funcoes do modelo 3D e da Display List.
 #include "glb_model.h"
 
 const GLfloat kCameraSpeed = 0.02;
@@ -56,7 +49,7 @@ const GLfloat kPerspectiveNearZ = 0.1;
 const GLfloat kPerspectiveFarZ = 100;
 const GLfloat kPerspectiveTranslateZ = 10;
 
-const GLfloat kModelInitialRotationX = 8;
+const GLfloat kModelInitialRotationX = 0;
 const GLfloat kModelInitialRotationY = -30;
 
 GLfloat translate_x = 0;
@@ -78,8 +71,16 @@ bool translating = false;
 bool rotating = false;
 bool scaling = false;
 
-// AULA 9 e 10: guarda o modelo carregado e sua Display List.
 GlbModel model;
+
+GlbModel street_lamp_model;
+GlbModel traffic_cone_model;
+GlbTexture road_texture;
+
+const GLfloat kRoadHeight = -0.65f;
+const GLfloat kLampScale = 0.85f;
+const GLfloat kConeScale = 0.16f;
+const GLfloat kCarRoadOffset = 0.40f;
 
 const GLfloat kHudHeight = 300;
 const GLfloat kHudWidth = 300;
@@ -258,6 +259,36 @@ void resize_window(GLFWwindow* window) {
   glViewport(0, 0, window_width, window_height);
 }
 
+void draw_road() {
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, road_texture.id);
+  glColor3ub(255, 255, 255);
+
+  glBegin(GL_QUADS);
+  glTexCoord2f(0, 0);
+  glVertex3f(-10, kRoadHeight, 8);
+  glTexCoord2f(0, 10);
+  glVertex3f(-10, kRoadHeight, -38);
+  glTexCoord2f(4, 10);
+  glVertex3f(10, kRoadHeight, -38);
+  glTexCoord2f(4, 0);
+  glVertex3f(10, kRoadHeight, 8);
+  glEnd();
+
+  glDisable(GL_TEXTURE_2D);
+}
+
+void draw_scene_object(const GlbModel& scene_model, GLfloat x, GLfloat y, GLfloat z,
+                       GLfloat scale, GLfloat rotation_x = 0, GLfloat rotation_y = 0) {
+  glPushMatrix();
+  glTranslatef(x, y, z);
+  glRotatef(rotation_x, 1, 0, 0);
+  glRotatef(rotation_y, 0, 1, 0);
+  glScalef(scale, scale, scale);
+  draw_model_display_list(scene_model);
+  glPopMatrix();
+}
+
 void draw(GLFWwindow* window) {
   int window_width, window_height;
   glfwGetFramebufferSize(window, &window_width, &window_height);
@@ -277,10 +308,13 @@ void draw(GLFWwindow* window) {
   GLfloat camera_center_x = (camera_eye_x + camera_direction_x);
   GLfloat camera_center_y = (camera_eye_y + camera_direction_y);
   GLfloat camera_center_z = (camera_eye_z + camera_direction_z);
-  gluLookAt(camera_eye_x, camera_eye_y, camera_eye_z,           // eye
-            camera_center_x, camera_center_y, camera_center_z,  // direction
-            kCameraUpX, kCameraUpY, kCameraUpZ                  // up
-  );
+  gluLookAt(camera_eye_x, camera_eye_y, camera_eye_z, camera_center_x, camera_center_y,
+            camera_center_z, kCameraUpX, kCameraUpY, kCameraUpZ);
+
+  draw_road();
+  draw_scene_object(street_lamp_model, -7.2f, 1.9f, -11.5f, kLampScale, 0, 180);
+  draw_scene_object(street_lamp_model, 7.2f, 1.9f, -11.5f, kLampScale);
+  draw_scene_object(traffic_cone_model, 2.3f, -0.15f, -7.8f, kConeScale);
 
   glTranslatef(translate_x, translate_y, translate_z - kPerspectiveTranslateZ);
   glRotatef(rotate_x, 1, 0, 0);
@@ -288,11 +322,11 @@ void draw(GLFWwindow* window) {
   glRotatef(rotate_z, 0, 0, 1);
   glScalef(scale_x, scale_y, scale_z);
 
+  glTranslatef(0, kCarRoadOffset, 0);
   glRotatef(kModelInitialRotationX, 1, 0, 0);
   glRotatef(kModelInitialRotationY, 0, 1, 0);
 
   glEnable(GL_TEXTURE_2D);
-  // AULA 10: executa a Display List pronta, sem percorrer as malhas novamente.
   draw_model_display_list(model);
   glDisable(GL_TEXTURE_2D);
 }
@@ -373,23 +407,35 @@ int main() {
   glfwPollEvents();
   std::cout << "Carregando o modelo 3D, aguarde..." << std::endl;
 
-  // AULA 9: usa o Assimp para carregar malhas, materiais e texturas do GLB.
-  // AULA 9: load_model tambem centraliza e ajusta automaticamente seu tamanho.
   if (!load_model(model, "models/sports_car.glb")) {
     glfwDestroyWindow(window);
     glfwTerminate();
     return EXIT_FAILURE;
   }
 
-  // AULA 10: grava uma vez os comandos de desenho do modelo em uma Display List.
-  if (!create_model_display_list(model)) {
+  if (!load_texture_external(road_texture, "textures/aerial_asphalt_01_diff_1k.jpg") ||
+      !load_model(street_lamp_model, "models/street_lamp/Street_Light_A_02.obj") ||
+      !load_model(traffic_cone_model, "models/traffic_cone.glb")) {
     destroy_model(model);
+    destroy_model(street_lamp_model);
+    destroy_model(traffic_cone_model);
     glfwDestroyWindow(window);
     glfwTerminate();
     return EXIT_FAILURE;
   }
 
-  glfwSetWindowTitle(window, "Sports Car com Display List - Aula 10");
+  if (!create_model_display_list(model) || !create_model_display_list(street_lamp_model) ||
+      !create_model_display_list(traffic_cone_model)) {
+    destroy_model(model);
+    destroy_model(street_lamp_model);
+    destroy_model(traffic_cone_model);
+    if (road_texture.id) glDeleteTextures(1, &road_texture.id);
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return EXIT_FAILURE;
+  }
+
+  glfwSetWindowTitle(window, "Cena 3D: carro, rua, postes e cones - Aula 11");
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   glfwSetCursorPosCallback(window, mouse_read);
 
@@ -405,8 +451,10 @@ int main() {
     glfwPollEvents();
   }
 
-  // AULA 9 e 10: libera a Display List, as texturas e a cena do Assimp.
   destroy_model(model);
+  destroy_model(street_lamp_model);
+  destroy_model(traffic_cone_model);
+  if (road_texture.id) glDeleteTextures(1, &road_texture.id);
 
   glfwDestroyWindow(window);
   glfwTerminate();

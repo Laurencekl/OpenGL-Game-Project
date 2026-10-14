@@ -1,8 +1,3 @@
-// Copyright
-// Computação Gráfica
-// URI Santiago
-// Professor Laurence
-
 #ifndef MODEL_HANDLER_H
 #define MODEL_HANDLER_H
 
@@ -28,14 +23,12 @@ struct GlbTexture {
   int height = 0;
 };
 
-// AULA 9: estrutura que mantem a cena, texturas e ajuste de tamanho do modelo.
 struct GlbModel {
   std::unique_ptr<Assimp::Importer> importer;
   const aiScene* scene = nullptr;
   std::unordered_map<unsigned int, GlbTexture> textures;
   std::unordered_map<unsigned int, aiColor4D> material_colors;
   
-  // AULA 10: ID da Display List que guarda os comandos de desenho compilados.
   GLuint display_list = 0;
   GLfloat center_x = 0;
   GLfloat center_y = 0;
@@ -59,7 +52,6 @@ static inline bool load_texture_path_from_material(std::string& texture_path_str
   return !texture_path_string.empty();
 }
 
-// AULA 9: envia os pixels para o OpenGL e cria uma textura 2D com mipmaps.
 static inline GlbTexture load_texture(const uint8_t* texture_data, GLenum internal_format,
                                       int texture_width, int texture_height, GLenum input_format) {
   GLint previous_texture_bind, previous_unpack_alignment;
@@ -86,7 +78,6 @@ static inline GlbTexture load_texture(const uint8_t* texture_data, GLenum intern
   return texture;
 }
 
-// AULA 9: extrai e decodifica uma textura embutida dentro do arquivo GLB.
 static inline bool load_texture_embedded(GlbTexture& glb_texture, const aiTexture* assimp_texture) {
   if (!assimp_texture) {
     return false;
@@ -137,7 +128,6 @@ static inline bool load_texture_external(GlbTexture& texture, const std::string&
   return true;
 }
 
-// AULA 9: calcula o centro e uma escala padrao usando os limites dos vertices.
 static inline void calculate_model_normalization(GlbModel& model) {
   aiVector3D minimum(std::numeric_limits<float>::max());
   aiVector3D maximum(std::numeric_limits<float>::lowest());
@@ -168,7 +158,6 @@ static inline void calculate_model_normalization(GlbModel& model) {
   }
 }
 
-// AULA 9: carrega o GLB com Assimp, prepara as faces/normais/UVs e suas texturas.
 static inline bool load_model(GlbModel& model, const std::string& filepath) {
   model.importer = std::make_unique<Assimp::Importer>();
   model.scene = model.importer->ReadFile(
@@ -192,7 +181,6 @@ static inline bool load_model(GlbModel& model, const std::string& filepath) {
        material_index++) {
     const aiMaterial* material = model.scene->mMaterials[material_index];
 
-    // AULA 9: partes sem textura usam a cor armazenada no material.
     aiColor4D material_color(1.0f, 1.0f, 1.0f, 1.0f);
     if (material->Get(AI_MATKEY_BASE_COLOR, material_color) != AI_SUCCESS) {
       material->Get(AI_MATKEY_COLOR_DIFFUSE, material_color);
@@ -205,7 +193,6 @@ static inline bool load_model(GlbModel& model, const std::string& filepath) {
     }
 
     GlbTexture texture;
-    // AULA 9: "*numero" indica que a textura esta embutida no proprio GLB.
     if (texture_path_string[0] == '*') {
       const unsigned int texture_index =
           std::strtoul(texture_path_string.c_str() + 1, nullptr, 10);
@@ -238,7 +225,6 @@ static inline bool load_model(GlbModel& model, const std::string& filepath) {
   return true;
 }
 
-// AULA 9: percorre a arvore do modelo e desenha suas malhas como triangulos.
 static inline void draw_model(const GlbModel& model, const aiNode* node) {
   if (!node) {
     return;
@@ -253,7 +239,6 @@ static inline void draw_model(const GlbModel& model, const aiNode* node) {
     for (unsigned int mesh_index = 0; mesh_index < node->mNumMeshes; mesh_index++) {
       const aiMesh* mesh = model.scene->mMeshes[node->mMeshes[mesh_index]];
 
-      // AULA 9: usa a textura da malha ou, se ela nao existir, a cor do material.
       const auto iterator = model.textures.find(mesh->mMaterialIndex);
       if (iterator != model.textures.end() && iterator->second.id) {
         glColor3ub(255, 255, 255);
@@ -301,7 +286,6 @@ static inline void draw_model(const GlbModel& model, const aiNode* node) {
   glPopMatrix();
 }
 
-// AULA 9: centraliza/redimensiona o modelo e inicia o desenho pelo no raiz.
 static inline void draw_model(const GlbModel& model) {
   if (!model.scene) {
     return;
@@ -318,8 +302,6 @@ static inline void draw_model(const GlbModel& model) {
   glPopMatrix();
 }
 
-// AULA 10: DISPLAY LIST
-// AULA 10: compila uma vez os comandos produzidos por draw_model.
 static inline bool create_model_display_list(GlbModel& model) {
   if (!model.scene) {
     return false;
@@ -329,14 +311,12 @@ static inline bool create_model_display_list(GlbModel& model) {
     glDeleteLists(model.display_list, 1);
   }
 
-  // AULA 10: reserva o identificador da nova Display List.
   model.display_list = glGenLists(1);
   if (!model.display_list) {
     std::cerr << "Erro ao criar a display list do modelo." << std::endl;
     return false;
   }
 
-  // AULA 10: grava os comandos de draw_model entre glNewList e glEndList.
   glNewList(model.display_list, GL_COMPILE);
   draw_model(model);
   glEndList();
@@ -345,14 +325,12 @@ static inline bool create_model_display_list(GlbModel& model) {
   return true;
 }
 
-// AULA 10: glCallList repete em cada quadro os comandos compilados anteriormente.
 static inline void draw_model_display_list(const GlbModel& model) {
   if (model.display_list) {
     glCallList(model.display_list);
   }
 }
 
-// AULA 9 e 10: libera a Display List, as texturas e a cena do Assimp.
 static inline void destroy_model(GlbModel& model) {
   if (model.display_list) {
     glDeleteLists(model.display_list, 1);
