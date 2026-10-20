@@ -75,12 +75,22 @@ GlbModel model;
 
 GlbModel street_lamp_model;
 GlbModel traffic_cone_model;
+
 GlbTexture road_texture;
 
 const GLfloat kRoadHeight = -0.65f;
 const GLfloat kLampScale = 0.85f;
 const GLfloat kConeScale = 0.16f;
 const GLfloat kCarRoadOffset = 0.40f;
+
+const GLfloat kDefaultLightPositionX = 0.0f;
+const GLfloat kDefaultLightPositionY = 4.0f;
+const GLfloat kDefaultLightPositionZ = -8.0f;
+const GLfloat kMinimumLightPositionY = 0.0f;
+const GLfloat kLightSpeed = 0.08f;
+GLfloat light_position_x = kDefaultLightPositionX;
+GLfloat light_position_y = kDefaultLightPositionY;
+GLfloat light_position_z = kDefaultLightPositionZ;
 
 const GLfloat kHudHeight = 300;
 const GLfloat kHudWidth = 300;
@@ -168,6 +178,10 @@ void keyboard_read(GLFWwindow* window) {
     rotate_x = rotate_y = rotate_z = 0;
     scale_x = scale_y = scale_z = 1;
 
+    light_position_x = kDefaultLightPositionX;
+    light_position_y = kDefaultLightPositionY;
+    light_position_z = kDefaultLightPositionZ;
+
     hud_text << "Redefinido! ";
   }
 
@@ -251,6 +265,28 @@ void keyboard_read(GLFWwindow* window) {
   if (glfwGetKey(window, GLFW_KEY_E) == GLFW_RELEASE) {
     scaling = false;
   }
+
+  if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+      light_position_x -= kLightSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+      light_position_x += kLightSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS &&
+        light_position_y > kMinimumLightPositionY) {
+      light_position_y -= kLightSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+      light_position_y += kLightSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS) {
+      light_position_z -= kLightSpeed;
+    }
+    if (glfwGetKey(window, GLFW_KEY_PAGE_UP) == GLFW_PRESS) {
+      light_position_z += kLightSpeed;
+    }
+  }
 }
 
 void resize_window(GLFWwindow* window) {
@@ -265,6 +301,7 @@ void draw_road() {
   glColor3ub(255, 255, 255);
 
   glBegin(GL_QUADS);
+  glNormal3f(0, 1, 0);
   glTexCoord2f(0, 0);
   glVertex3f(-10, kRoadHeight, 8);
   glTexCoord2f(0, 10);
@@ -285,6 +322,7 @@ void draw_scene_object(const GlbModel& scene_model, GLfloat x, GLfloat y, GLfloa
   glRotatef(rotation_x, 1, 0, 0);
   glRotatef(rotation_y, 0, 1, 0);
   glScalef(scale, scale, scale);
+
   draw_model_display_list(scene_model);
   glPopMatrix();
 }
@@ -310,6 +348,9 @@ void draw(GLFWwindow* window) {
   GLfloat camera_center_z = (camera_eye_z + camera_direction_z);
   gluLookAt(camera_eye_x, camera_eye_y, camera_eye_z, camera_center_x, camera_center_y,
             camera_center_z, kCameraUpX, kCameraUpY, kCameraUpZ);
+
+  GLfloat light_position[] = {light_position_x, light_position_y, light_position_z, 1.0f};
+  glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 
   draw_road();
   draw_scene_object(street_lamp_model, -7.2f, 1.9f, -11.5f, kLampScale, 0, 180);
@@ -350,6 +391,8 @@ void draw_hud(GLFWwindow* window) {
 
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
+
+  glDisable(GL_LIGHTING);
   glDisable(GL_DEPTH_TEST);
   {
     glColor3ub(255, 255, 255);
@@ -372,6 +415,8 @@ void draw_hud(GLFWwindow* window) {
     glEnd();
   }
   glEnable(GL_DEPTH_TEST);
+
+  glEnable(GL_LIGHTING);
 }
 
 int main() {
@@ -396,7 +441,20 @@ int main() {
   }
 
   glEnable(GL_DEPTH_TEST);
-  glClearColor(0, 0, 0, 1);
+
+  glEnable(GL_LIGHTING);
+  glEnable(GL_LIGHT0);
+
+  glEnable(GL_COLOR_MATERIAL);
+  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+
+  glEnable(GL_NORMALIZE);
+
+  GLfloat light_ambient[] = {0.20f, 0.20f, 0.20f, 1.0f};
+  GLfloat light_diffuse[] = {0.90f, 0.90f, 0.90f, 1.0f};
+  glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
+  glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+  glClearColor(0.35f, 0.65f, 0.95f, 1.0f);
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   resize_window(window);
@@ -435,7 +493,7 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  glfwSetWindowTitle(window, "Cena 3D: carro, rua, postes e cones - Aula 11");
+  glfwSetWindowTitle(window, "Cena 3D com luz movel - Aula 12");
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   glfwSetCursorPosCallback(window, mouse_read);
 
