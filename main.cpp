@@ -8,23 +8,26 @@
 #include <cstdint>
 #include <iostream>
 #include <sstream>
+#include <random>
+#include <vector>
 
 #include "font.h"
 #include "glb_model.h"
 
 const GLfloat kCameraSpeed = 0.02;
 const GLfloat kMouseSensitivity = 0.1;
+const GLfloat kWorldScale = 1.20f;
 
-const GLfloat kDefaultCameraEyePositionX = 16;
-const GLfloat kDefaultCameraEyePositionY = 10;
-const GLfloat kDefaultCameraEyePositionZ = 12;
+const GLfloat kDefaultCameraEyePositionX = 10;
+const GLfloat kDefaultCameraEyePositionY = 6;
+const GLfloat kDefaultCameraEyePositionZ = 6;
 GLfloat camera_eye_x = kDefaultCameraEyePositionX;
 GLfloat camera_eye_y = kDefaultCameraEyePositionY;
 GLfloat camera_eye_z = kDefaultCameraEyePositionZ;
 
-const GLfloat kDefaultCameraDirectionX = -0.534f;
-const GLfloat kDefaultCameraDirectionY = -0.292f;
-const GLfloat kDefaultCameraDirectionZ = -0.794f;
+const GLfloat kDefaultCameraDirectionX = -0.5817f;
+const GLfloat kDefaultCameraDirectionY = -0.2053f;
+const GLfloat kDefaultCameraDirectionZ = -0.7871f;
 GLfloat camera_direction_x = kDefaultCameraDirectionX;
 GLfloat camera_direction_y = kDefaultCameraDirectionY;
 GLfloat camera_direction_z = kDefaultCameraDirectionZ;
@@ -33,25 +36,25 @@ const GLfloat kCameraUpX = 0;
 const GLfloat kCameraUpY = 1;
 const GLfloat kCameraUpZ = 0;
 
-GLfloat camera_right_x = -0.794f;
+GLfloat camera_right_x = -0.7871f;
 GLfloat camera_right_y = 0;
-GLfloat camera_right_z = 0.534f;
+GLfloat camera_right_z = 0.5817f;
 
-const GLfloat kDefaultCameraYaw = -123.9f;
+const GLfloat kDefaultCameraYaw = -126.47f;
 GLfloat camera_yaw = kDefaultCameraYaw;
 
 const GLfloat kCameraPitchLimit = 90;
-const GLfloat kDefaultCameraPitch = -17.0f;
+const GLfloat kDefaultCameraPitch = -11.85f;
 GLfloat camera_pitch = kDefaultCameraPitch;
 
 const GLfloat kPerspectiveFieldOfViewAngle = 45;
 const GLfloat kPerspectiveNearZ = 0.1;
 const GLfloat kPerspectiveFarZ = 100;
-const GLfloat kPerspectiveTranslateZ = 10;
 
 const GLfloat kModelInitialRotationX = 0;
 const GLfloat kModelInitialRotationY = 0;
 const GLfloat kParkedCarPositionX = 3.4f;
+const GLfloat kParkedCarPositionZ = -12.0f;
 
 GLfloat translate_x = 0;
 GLfloat translate_y = 0;
@@ -79,6 +82,11 @@ GlbModel model;
 GlbModel street_lamp_model;
 GlbModel traffic_cone_model;
 GlbModel house_model;
+GlbModel neymar_model;
+GlbModel umbrella_model;
+GlbModel beetle_model;
+GlbModel cloud_model;
+GlbModel pikachu_model;
 
 GlbTexture road_texture;
 
@@ -92,15 +100,15 @@ const GLfloat kGrassHeight = kRoadHeight + 0.14f;
 GLfloat house_ground_y = 0;
 GLfloat lamp_ground_y = 0;
 GLfloat cone_ground_y = 0;
+const GLfloat kNeymarScale = 0.42f;
+const GLfloat kUmbrellaScale = 0.80f;
+const GLfloat kBeetleScale = 0.85f;
+const GLfloat kPikachuScale = 0.16f;
+GLfloat neymar_ground_y = 0;
+GLfloat beetle_ground_y = 0;
+GLfloat pikachu_ground_y = 0;
 
-const GLfloat kDefaultLightPositionX = 5.9f;
-const GLfloat kDefaultLightPositionY = 4.8f;
-const GLfloat kDefaultLightPositionZ = -11.5f;
-const GLfloat kMinimumLightPositionY = 0.0f;
-const GLfloat kLightSpeed = 0.08f;
-GLfloat light_position_x = kDefaultLightPositionX;
-GLfloat light_position_y = kDefaultLightPositionY;
-GLfloat light_position_z = kDefaultLightPositionZ;
+const GLfloat kStreetLightHeight = 4.8f;
 
 struct StreetLampPosition {
   GLfloat x;
@@ -118,9 +126,55 @@ const StreetLampPosition street_lamps[] = {
 };
 const int kStreetLampCount = sizeof(street_lamps) / sizeof(street_lamps[0]);
 
-const GLfloat kHudHeight = 300;
-const GLfloat kHudWidth = 300;
+const GLfloat kHudHeight = 500;
+const GLfloat kHudWidth = 500;
 std::ostringstream hud_text;
+
+double last_time = 0;
+bool animations_paused = false;
+bool rain_enabled = true;
+bool bright_mode_enabled = false;
+bool p_key_was_pressed = false;
+bool c_key_was_pressed = false;
+bool b_key_was_pressed = false;
+const int kRainDropCount = 1600;
+
+struct MovingCloud {
+  GLfloat x, y, z, scale, speed;
+};
+MovingCloud clouds[] = {
+  {-14, 9.5f, -25, 2.2f, 0.65f},
+  {4, 10.5f, -32, 2.6f, 0.50f},
+  {-8, 14, -8, 2.1f, 0.75f},
+  {14, 12, -15, 2.4f, 0.60f},
+  {-20, 13, -38, 2.4f, 0.55f}
+};
+
+struct RainDrop {
+  GLfloat x, y, z, speed, length;
+};
+std::vector<RainDrop> rain_drops;
+std::mt19937 weather_random(13);
+
+GLfloat random_weather_value(GLfloat minimum, GLfloat maximum) {
+  return std::uniform_real_distribution<GLfloat>(minimum, maximum)(weather_random);
+}
+
+void initialize_weather() {
+  rain_drops.resize(kRainDropCount);
+  for (RainDrop& drop : rain_drops) {
+    drop = {random_weather_value(-22, 22), random_weather_value(kRoadHeight, 15),
+            random_weather_value(-38, 8), random_weather_value(9, 14),
+            random_weather_value(0.22f, 0.40f)};
+  }
+}
+
+bool key_pressed_once(GLFWwindow* window, int key, bool& was_pressed) {
+  const bool pressed = glfwGetKey(window, key) == GLFW_PRESS;
+  const bool just_pressed = pressed && !was_pressed;
+  was_pressed = pressed;
+  return just_pressed;
+}
 
 static void mouse_read(GLFWwindow* window, double mouse_x, double mouse_y) {
   static bool mouse_initialized = false;
@@ -170,6 +224,20 @@ void keyboard_read(GLFWwindow* window) {
   }
   f_key_was_pressed = f_key_is_pressed;
 
+  if (key_pressed_once(window, GLFW_KEY_P, p_key_was_pressed)) {
+    animations_paused = !animations_paused;
+  }
+  if (key_pressed_once(window, GLFW_KEY_C, c_key_was_pressed)) {
+    rain_enabled = !rain_enabled;
+  }
+  if (key_pressed_once(window, GLFW_KEY_B, b_key_was_pressed)) {
+    bright_mode_enabled = !bright_mode_enabled;
+  }
+  hud_text << "C: chuva " << (rain_enabled ? "ON" : "OFF")
+           << " | P: " << (animations_paused ? "pausado" : "animando")
+           << " | B: claro " << (bright_mode_enabled ? "ON" : "OFF")
+           << " | F: postes " << (street_light_enabled ? "ON " : "OFF ");
+
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
     camera_eye_x += camera_direction_x * kCameraSpeed;
     camera_eye_y += camera_direction_y * kCameraSpeed;
@@ -210,10 +278,6 @@ void keyboard_read(GLFWwindow* window) {
     translate_x = translate_y = translate_z = 0;
     rotate_x = rotate_y = rotate_z = 0;
     scale_x = scale_y = scale_z = 1;
-
-    light_position_x = kDefaultLightPositionX;
-    light_position_y = kDefaultLightPositionY;
-    light_position_z = kDefaultLightPositionZ;
 
     hud_text << "Redefinido! ";
   }
@@ -299,27 +363,48 @@ void keyboard_read(GLFWwindow* window) {
     scaling = false;
   }
 
-  if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
-    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
-      light_position_x -= kLightSpeed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-      light_position_x += kLightSpeed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS &&
-        light_position_y > kMinimumLightPositionY) {
-      light_position_y -= kLightSpeed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-      light_position_y += kLightSpeed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS) {
-      light_position_z -= kLightSpeed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_PAGE_UP) == GLFW_PRESS) {
-      light_position_z += kLightSpeed;
+}
+
+void animate() {
+  const double current_time = glfwGetTime();
+  const double delta_time = current_time - last_time;
+  last_time = current_time;
+  if (animations_paused) return;
+
+  for (MovingCloud& cloud : clouds) {
+    cloud.x += cloud.speed * delta_time;
+    if (cloud.x > 30) cloud.x = -30 + std::fmod(cloud.x - 30, 60.0f);
+  }
+  if (rain_enabled) {
+    for (RainDrop& drop : rain_drops) {
+      drop.y -= drop.speed * delta_time;
+      if (drop.y < kRoadHeight) {
+        drop.x = random_weather_value(-22, 22);
+        drop.y = random_weather_value(12, 15);
+        drop.z = random_weather_value(-38, 8);
+      }
     }
   }
+}
+
+void draw_rain() {
+  if (!rain_enabled) return;
+  glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_LINE_BIT |
+               GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glDisable(GL_LIGHTING);
+  glDisable(GL_TEXTURE_2D);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glDepthMask(GL_FALSE);
+  glLineWidth(1);
+  glColor4f(0.66f, 0.78f, 0.90f, 0.65f);
+  glBegin(GL_LINES);
+  for (const RainDrop& drop : rain_drops) {
+    glVertex3f(drop.x, drop.y, drop.z);
+    glVertex3f(drop.x + 0.04f, drop.y + drop.length, drop.z);
+  }
+  glEnd();
+  glPopAttrib();
 }
 
 void resize_window(GLFWwindow* window) {
@@ -431,6 +516,22 @@ void draw_scene_object(const GlbModel& scene_model, GLfloat x, GLfloat y, GLfloa
   glPopMatrix();
 }
 
+void draw_neymar_with_umbrella() {
+  glPushMatrix();
+  glTranslatef(-7.9f, neymar_ground_y, -17.2f);
+  glRotatef(90, 0, 1, 0);
+  glScalef(kNeymarScale, kNeymarScale, kNeymarScale);
+  draw_model_display_list(neymar_model);
+
+  glTranslatef(-0.597523f, 1.05617f, 0.633052f);
+  glScalef(kUmbrellaScale, kUmbrellaScale, kUmbrellaScale);
+  glTranslatef(umbrella_model.center_x * umbrella_model.normalization_scale,
+               (umbrella_model.center_y - 0.10f) * umbrella_model.normalization_scale,
+               umbrella_model.center_z * umbrella_model.normalization_scale);
+  draw_model_display_list(umbrella_model);
+  glPopMatrix();
+}
+
 void draw(GLFWwindow* window) {
   int window_width, window_height;
   glfwGetFramebufferSize(window, &window_width, &window_height);
@@ -453,23 +554,35 @@ void draw(GLFWwindow* window) {
   gluLookAt(camera_eye_x, camera_eye_y, camera_eye_z, camera_center_x, camera_center_y,
             camera_center_z, kCameraUpX, kCameraUpY, kCameraUpZ);
 
+  const GLfloat normal_ambient[] = {0.20f, 0.20f, 0.20f, 1};
+  const GLfloat bright_ambient[] = {0.65f, 0.65f, 0.65f, 1};
+  glLightModelfv(GL_LIGHT_MODEL_AMBIENT,
+                bright_mode_enabled ? bright_ambient : normal_ambient);
+  const GLfloat sky_direction[] = {-0.4f, 1, 0.3f, 0};
+  glLightfv(GL_LIGHT7, GL_POSITION, sky_direction);
+
+  glPushMatrix();
+  glScalef(kWorldScale, kWorldScale, kWorldScale);
+
   for (int i = 0; i < kStreetLampCount; ++i) {
     const GLenum light = GL_LIGHT0 + i;
     if (street_light_enabled) {
       glEnable(light);
-      GLfloat position[] = {street_lamps[i].x, kDefaultLightPositionY,
+      GLfloat position[] = {street_lamps[i].x, kStreetLightHeight,
                             street_lamps[i].z, 1.0f};
-      if (i == 0) {
-        position[0] = light_position_x;
-        position[1] = light_position_y;
-        position[2] = light_position_z;
-      }
       glLightfv(light, GL_POSITION, position);
     } else {
       glDisable(light);
     }
   }
 
+  glPushAttrib(GL_LIGHTING_BIT);
+  const GLfloat cloud_emission[] = {0.18f, 0.20f, 0.22f, 1};
+  glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, cloud_emission);
+  for (const MovingCloud& cloud : clouds) {
+    draw_scene_object(cloud_model, cloud.x, cloud.y, cloud.z, cloud.scale);
+  }
+  glPopAttrib();
   draw_road();
   for (const StreetLampPosition& lamp : street_lamps) {
     draw_scene_object(street_lamp_model, lamp.x, lamp_ground_y, lamp.z,
@@ -477,9 +590,14 @@ void draw(GLFWwindow* window) {
   }
   draw_scene_object(traffic_cone_model, 4.2f, cone_ground_y, -4.5f, kConeScale);
   draw_scene_object(house_model, -14.0f, house_ground_y, -19.0f, kHouseScale, 0, 90);
+  draw_scene_object(beetle_model, -13.0f, beetle_ground_y, -12.3f, kBeetleScale, 0, -90);
 
+  draw_neymar_with_umbrella();
+  draw_scene_object(pikachu_model, -8.1f, pikachu_ground_y, -15.8f, kPikachuScale, 0, 90);
+
+  glPushMatrix();
   glTranslatef(kParkedCarPositionX + translate_x, translate_y,
-               translate_z - kPerspectiveTranslateZ);
+               kParkedCarPositionZ + translate_z);
   glRotatef(rotate_x, 1, 0, 0);
   glRotatef(rotate_y, 0, 1, 0);
   glRotatef(rotate_z, 0, 0, 1);
@@ -492,6 +610,9 @@ void draw(GLFWwindow* window) {
   glEnable(GL_TEXTURE_2D);
   draw_model_display_list(model);
   glDisable(GL_TEXTURE_2D);
+  glPopMatrix();
+  draw_rain();
+  glPopMatrix();
 }
 
 void draw_hud(GLFWwindow* window) {
@@ -579,9 +700,13 @@ int main() {
     glLightfv(light, GL_AMBIENT, light_ambient);
     glLightfv(light, GL_DIFFUSE, light_diffuse);
     glLightf(light, GL_CONSTANT_ATTENUATION, 1.0f);
-    glLightf(light, GL_LINEAR_ATTENUATION, 0.10f);
-    glLightf(light, GL_QUADRATIC_ATTENUATION, 0.045f);
+    glLightf(light, GL_LINEAR_ATTENUATION, 0.10f / kWorldScale);
+    glLightf(light, GL_QUADRATIC_ATTENUATION, 0.045f / (kWorldScale * kWorldScale));
   }
+  const GLfloat sky_diffuse[] = {0.40f, 0.43f, 0.48f, 1};
+  glLightfv(GL_LIGHT7, GL_AMBIENT, light_ambient);
+  glLightfv(GL_LIGHT7, GL_DIFFUSE, sky_diffuse);
+  glEnable(GL_LIGHT7);
   glClearColor(0.35f, 0.65f, 0.95f, 1.0f);
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -602,11 +727,21 @@ int main() {
   if (!load_texture_external(road_texture, "textures/aerial_asphalt_01_diff_1k.jpg") ||
       !load_model(street_lamp_model, "models/street_lamp/Street_Light_A_02.obj") ||
       !load_model(traffic_cone_model, "models/traffic_cone.glb") ||
-      !load_model(house_model, "models/house.glb")) {
+      !load_model(house_model, "models/house.glb") ||
+      !load_model(neymar_model, "models/neymar_holding.glb") ||
+      !load_model(umbrella_model, "models/umbrella/Umbrella.obj") ||
+      !load_model(beetle_model, "models/beetle/VWbeetle.obj", false) ||
+      !load_model(cloud_model, "models/cloud/cloud.obj", true, true) ||
+      !load_model(pikachu_model, "models/pikachu/pikachu.obj", true, true)) {
     destroy_model(model);
     destroy_model(street_lamp_model);
     destroy_model(traffic_cone_model);
     destroy_model(house_model);
+    destroy_model(neymar_model);
+    destroy_model(umbrella_model);
+    destroy_model(beetle_model);
+    destroy_model(cloud_model);
+    destroy_model(pikachu_model);
     glfwDestroyWindow(window);
     glfwTerminate();
     return EXIT_FAILURE;
@@ -615,28 +750,49 @@ int main() {
   house_ground_y = model_ground_position(house_model, kHouseScale, kGrassHeight);
   lamp_ground_y = model_ground_position(street_lamp_model, kLampScale, kSidewalkHeight);
   cone_ground_y = model_ground_position(traffic_cone_model, kConeScale, kRoadHeight);
+  neymar_ground_y = model_ground_position(neymar_model, kNeymarScale, kSidewalkHeight + 0.004f);
+  beetle_ground_y = model_ground_position(beetle_model, kBeetleScale, kGrassHeight);
+  pikachu_ground_y = model_ground_position(pikachu_model, kPikachuScale, kGrassHeight);
+  for (auto& material : cloud_model.material_colors) {
+    material.second = aiColor4D(0.78f, 0.80f, 0.83f, 1);
+  }
 
   if (!create_model_display_list(model) || !create_model_display_list(street_lamp_model) ||
-      !create_model_display_list(traffic_cone_model) || !create_model_display_list(house_model)) {
+      !create_model_display_list(traffic_cone_model) || !create_model_display_list(house_model) ||
+      !create_model_display_list(neymar_model) || !create_model_display_list(umbrella_model) ||
+      !create_model_display_list(beetle_model) || !create_model_display_list(cloud_model) ||
+      !create_model_display_list(pikachu_model)) {
     destroy_model(model);
     destroy_model(street_lamp_model);
     destroy_model(traffic_cone_model);
     destroy_model(house_model);
+    destroy_model(neymar_model);
+    destroy_model(umbrella_model);
+    destroy_model(beetle_model);
+    destroy_model(cloud_model);
+    destroy_model(pikachu_model);
     if (road_texture.id) glDeleteTextures(1, &road_texture.id);
     glfwDestroyWindow(window);
     glfwTerminate();
     return EXIT_FAILURE;
   }
 
-  glfwSetWindowTitle(window, "Cena 3D: rua, casa e poste de luz");
+  initialize_weather();
+  last_time = glfwGetTime();
+  glfwSetWindowTitle(window, "Aula 13 - Nuvens e chuva animadas");
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   glfwSetCursorPosCallback(window, mouse_read);
 
   while (!glfwWindowShouldClose(window)) {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     keyboard_read(window);
     resize_window(window);
+    animate();
+    if (rain_enabled) {
+      glClearColor(0.32f, 0.53f, 0.70f, 1);
+    } else {
+      glClearColor(0.35f, 0.65f, 0.95f, 1);
+    }
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     draw(window);
     draw_hud(window);
 
@@ -648,6 +804,11 @@ int main() {
   destroy_model(street_lamp_model);
   destroy_model(traffic_cone_model);
   destroy_model(house_model);
+  destroy_model(neymar_model);
+  destroy_model(umbrella_model);
+  destroy_model(beetle_model);
+  destroy_model(cloud_model);
+  destroy_model(pikachu_model);
   if (road_texture.id) glDeleteTextures(1, &road_texture.id);
 
   glfwDestroyWindow(window);

@@ -1,0 +1,24 @@
+Neymar: "neymar 3d free football model #free + animation"
+Autor: Ltti....................Ttg (Sketchfab).
+https://sketchfab.com/3d-models/neymar-3d-free-football-model-free-animation-abe6e9655ca24423ad3d34a7c773a765
+Licenca informada na pagina: Creative Commons Attribution (CC BY).
+Alteracoes: pose estatica com braco dobrado; esqueleto e animacoes removidos
+da copia neymar_holding.glb depois de aplicar a pose aos vertices.
+
+Guarda-chuva: "Umbrella", por Oracle-On-Trader (CGTrader).
+https://www.cgtrader.com/items/2073978/download-page
+Alteracoes: escala e posicionamento do cabo na mao do personagem na cena;
+material alterado para preto.
+
+Fusca: "Volkswagen beetle", por euginsb (CGTrader).
+https://www.cgtrader.com/items/3190316/download-page
+Alteracoes: escala e posicionamento no gramado ajustados na cena.
+
+Nuvem: "Cloud 3D VDB and model guide", por kk-fx (CGTrader).
+https://www.cgtrader.com/free-3d-models/various/various-models/cloud-3d-vdb-and-model-guide
+Alteracoes: material cinza, escala e deslocamento animado definidos no codigo.
+
+Pikachu: "Pikachu Model 3D", por maximochaparro13 (CGTrader).
+https://www.cgtrader.com/items/4398355/download-page
+Alteracoes: materiais de cores criados para o OBJ baixado, que nao incluia
+o arquivo obj.mtl referenciado; escala e posicionamento ajustados na cena.

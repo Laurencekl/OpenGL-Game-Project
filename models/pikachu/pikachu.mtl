@@ -1,0 +1,39 @@
+newmtl yellow
+Ka 1 0.78 0.02
+Kd 1 0.78 0.02
+Ks 0.15 0.15 0.15
+Ns 24
+d 1
+illum 2
+
+newmtl black
+Ka 0.025 0.025 0.03
+Kd 0.025 0.025 0.03
+Ks 0.15 0.15 0.15
+Ns 24
+d 1
+illum 2
+
+newmtl red
+Ka 0.86 0.045 0.025
+Kd 0.86 0.045 0.025
+Ks 0.15 0.15 0.15
+Ns 24
+d 1
+illum 2
+
+newmtl brown
+Ka 0.3 0.12 0.025
+Kd 0.3 0.12 0.025
+Ks 0.15 0.15 0.15
+Ns 24
+d 1
+illum 2
+
+newmtl highlight
+Ka 1 1 1
+Kd 1 1 1
+Ks 0.15 0.15 0.15
+Ns 24
+d 1
+illum 2

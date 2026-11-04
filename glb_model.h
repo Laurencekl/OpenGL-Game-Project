@@ -158,13 +158,16 @@ static inline void calculate_model_normalization(GlbModel& model) {
   }
 }
 
-static inline bool load_model(GlbModel& model, const std::string& filepath) {
+static inline bool load_model(GlbModel& model, const std::string& filepath,
+                              bool optimize_vertices = true, bool smooth_normals = false) {
   model.importer = std::make_unique<Assimp::Importer>();
-  model.scene = model.importer->ReadFile(
-      filepath.c_str(), aiProcess_Triangulate | aiProcess_GenNormals |
-                            aiProcess_ImproveCacheLocality | aiProcess_JoinIdenticalVertices |
-                            aiProcess_CalcTangentSpace | aiProcess_FlipUVs |
-                            aiProcess_PreTransformVertices);
+  unsigned int flags = aiProcess_Triangulate |
+                       (smooth_normals ? aiProcess_GenSmoothNormals : aiProcess_GenNormals) |
+                       aiProcess_FlipUVs | aiProcess_PreTransformVertices;
+  if (optimize_vertices) {
+    flags |= aiProcess_ImproveCacheLocality | aiProcess_JoinIdenticalVertices;
+  }
+  model.scene = model.importer->ReadFile(filepath.c_str(), flags);
   if (!model.scene) {
     std::cerr << "Erro ao carregar modelo: " << filepath << std::endl;
     std::cerr << model.importer->GetErrorString() << std::endl;
@@ -267,7 +270,7 @@ static inline void draw_model(const GlbModel& model, const aiNode* node) {
             glNormal3f(normal.x, normal.y, normal.z);
           }
 
-          if (mesh->HasTextureCoords(0)) {
+          if (iterator != model.textures.end() && iterator->second.id && mesh->HasTextureCoords(0)) {
             const aiVector3D& texture_uv = mesh->mTextureCoords[0][current_vertex_index];
             glTexCoord2f(texture_uv.x, texture_uv.y);
           }
