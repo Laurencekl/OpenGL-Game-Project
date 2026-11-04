@@ -15,16 +15,16 @@
 const GLfloat kCameraSpeed = 0.02;
 const GLfloat kMouseSensitivity = 0.1;
 
-const GLfloat kDefaultCameraEyePositionX = 0;
-const GLfloat kDefaultCameraEyePositionY = 0;
-const GLfloat kDefaultCameraEyePositionZ = 0;
+const GLfloat kDefaultCameraEyePositionX = 16;
+const GLfloat kDefaultCameraEyePositionY = 10;
+const GLfloat kDefaultCameraEyePositionZ = 12;
 GLfloat camera_eye_x = kDefaultCameraEyePositionX;
 GLfloat camera_eye_y = kDefaultCameraEyePositionY;
 GLfloat camera_eye_z = kDefaultCameraEyePositionZ;
 
-const GLfloat kDefaultCameraDirectionX = 0;
-const GLfloat kDefaultCameraDirectionY = 0;
-const GLfloat kDefaultCameraDirectionZ = -1;
+const GLfloat kDefaultCameraDirectionX = -0.534f;
+const GLfloat kDefaultCameraDirectionY = -0.292f;
+const GLfloat kDefaultCameraDirectionZ = -0.794f;
 GLfloat camera_direction_x = kDefaultCameraDirectionX;
 GLfloat camera_direction_y = kDefaultCameraDirectionY;
 GLfloat camera_direction_z = kDefaultCameraDirectionZ;
@@ -33,15 +33,15 @@ const GLfloat kCameraUpX = 0;
 const GLfloat kCameraUpY = 1;
 const GLfloat kCameraUpZ = 0;
 
-GLfloat camera_right_x = -1;
+GLfloat camera_right_x = -0.794f;
 GLfloat camera_right_y = 0;
-GLfloat camera_right_z = 0;
+GLfloat camera_right_z = 0.534f;
 
-const GLfloat kDefaultCameraYaw = -90;
+const GLfloat kDefaultCameraYaw = -123.9f;
 GLfloat camera_yaw = kDefaultCameraYaw;
 
 const GLfloat kCameraPitchLimit = 90;
-const GLfloat kDefaultCameraPitch = 0;
+const GLfloat kDefaultCameraPitch = -17.0f;
 GLfloat camera_pitch = kDefaultCameraPitch;
 
 const GLfloat kPerspectiveFieldOfViewAngle = 45;
@@ -50,7 +50,8 @@ const GLfloat kPerspectiveFarZ = 100;
 const GLfloat kPerspectiveTranslateZ = 10;
 
 const GLfloat kModelInitialRotationX = 0;
-const GLfloat kModelInitialRotationY = -30;
+const GLfloat kModelInitialRotationY = 0;
+const GLfloat kParkedCarPositionX = 3.4f;
 
 GLfloat translate_x = 0;
 GLfloat translate_y = 0;
@@ -70,27 +71,52 @@ const GLfloat kMinimumScale = 0.1;
 bool translating = false;
 bool rotating = false;
 bool scaling = false;
+bool street_light_enabled = false;
+bool f_key_was_pressed = false;
 
 GlbModel model;
 
 GlbModel street_lamp_model;
 GlbModel traffic_cone_model;
+GlbModel house_model;
 
 GlbTexture road_texture;
 
 const GLfloat kRoadHeight = -0.65f;
 const GLfloat kLampScale = 0.85f;
 const GLfloat kConeScale = 0.16f;
+const GLfloat kHouseScale = 1.7f;
 const GLfloat kCarRoadOffset = 0.40f;
+const GLfloat kSidewalkHeight = kRoadHeight + 0.18f;
+const GLfloat kGrassHeight = kRoadHeight + 0.14f;
+GLfloat house_ground_y = 0;
+GLfloat lamp_ground_y = 0;
+GLfloat cone_ground_y = 0;
 
-const GLfloat kDefaultLightPositionX = 0.0f;
-const GLfloat kDefaultLightPositionY = 4.0f;
-const GLfloat kDefaultLightPositionZ = -8.0f;
+const GLfloat kDefaultLightPositionX = 5.9f;
+const GLfloat kDefaultLightPositionY = 4.8f;
+const GLfloat kDefaultLightPositionZ = -11.5f;
 const GLfloat kMinimumLightPositionY = 0.0f;
 const GLfloat kLightSpeed = 0.08f;
 GLfloat light_position_x = kDefaultLightPositionX;
 GLfloat light_position_y = kDefaultLightPositionY;
 GLfloat light_position_z = kDefaultLightPositionZ;
+
+struct StreetLampPosition {
+  GLfloat x;
+  GLfloat z;
+  GLfloat rotation_y;
+};
+
+const StreetLampPosition street_lamps[] = {
+  {5.9f, -11.5f, 0},
+  {-5.9f, -11.5f, 180},
+  {5.9f, 1.0f, 0},
+  {-5.9f, 1.0f, 180},
+  {5.9f, -25.0f, 0},
+  {-5.9f, -25.0f, 180}
+};
+const int kStreetLampCount = sizeof(street_lamps) / sizeof(street_lamps[0]);
 
 const GLfloat kHudHeight = 300;
 const GLfloat kHudWidth = 300;
@@ -137,6 +163,13 @@ void keyboard_read(GLFWwindow* window) {
     glfwSetWindowShouldClose(window, true);
   }
 
+  const bool f_key_is_pressed = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS;
+  if (f_key_is_pressed && !f_key_was_pressed) {
+    street_light_enabled = !street_light_enabled;
+    hud_text << (street_light_enabled ? "Poste ligado " : "Poste desligado ");
+  }
+  f_key_was_pressed = f_key_is_pressed;
+
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
     camera_eye_x += camera_direction_x * kCameraSpeed;
     camera_eye_y += camera_direction_y * kCameraSpeed;
@@ -168,9 +201,9 @@ void keyboard_read(GLFWwindow* window) {
     camera_direction_x = kDefaultCameraDirectionX;
     camera_direction_y = kDefaultCameraDirectionY;
     camera_direction_z = kDefaultCameraDirectionZ;
-    camera_right_x = -1;
+    camera_right_x = kDefaultCameraDirectionZ;
     camera_right_y = 0;
-    camera_right_z = 0;
+    camera_right_z = -kDefaultCameraDirectionX;
     camera_yaw = kDefaultCameraYaw;
     camera_pitch = kDefaultCameraPitch;
 
@@ -295,24 +328,95 @@ void resize_window(GLFWwindow* window) {
   glViewport(0, 0, window_width, window_height);
 }
 
+void draw_ground_tile(GLfloat x1, GLfloat z1, GLfloat x2, GLfloat z2, GLfloat y,
+                      GLfloat texture_scale = 1) {
+  glNormal3f(0, 1, 0);
+  glTexCoord2f(x1 * texture_scale, z1 * texture_scale); glVertex3f(x1, y, z1);
+  glTexCoord2f(x1 * texture_scale, z2 * texture_scale); glVertex3f(x1, y, z2);
+  glTexCoord2f(x2 * texture_scale, z2 * texture_scale); glVertex3f(x2, y, z2);
+  glTexCoord2f(x2 * texture_scale, z1 * texture_scale); glVertex3f(x2, y, z1);
+}
+
+void draw_sidewalk(GLfloat left, GLfloat right) {
+  glDisable(GL_TEXTURE_2D);
+  glBegin(GL_QUADS);
+  for (int z = -38; z < 8; ++z) {
+    glColor3f(0.48f, 0.49f, 0.50f);
+    draw_ground_tile(left, z, right, z + 1, kSidewalkHeight);
+    glColor3f(0.68f, 0.69f, 0.70f);
+    draw_ground_tile(left + 0.025f, z + 0.025f, right - 0.025f, z + 0.975f,
+                     kSidewalkHeight + 0.002f);
+  }
+  glColor3f(0.56f, 0.57f, 0.58f);
+  glNormal3f(-1, 0, 0);
+  glVertex3f(left, kRoadHeight, -38); glVertex3f(left, kRoadHeight, 8);
+  glVertex3f(left, kSidewalkHeight, 8); glVertex3f(left, kSidewalkHeight, -38);
+  glNormal3f(1, 0, 0);
+  glVertex3f(right, kRoadHeight, 8); glVertex3f(right, kRoadHeight, -38);
+  glVertex3f(right, kSidewalkHeight, -38); glVertex3f(right, kSidewalkHeight, 8);
+  glEnd();
+}
+
+void draw_grass(GLfloat left, GLfloat right) {
+  glDisable(GL_TEXTURE_2D);
+  glBegin(GL_QUADS);
+  for (GLfloat x = left; x < right; x += 0.5f) {
+    for (GLfloat z = -38; z < 8; z += 0.5f) {
+      const int tile = static_cast<int>((x + 24) * 2) * 73 + static_cast<int>((z + 38) * 2) * 37;
+      const GLfloat shade = (tile % 11) * 0.003f;
+      glColor3f(0.20f + shade, 0.43f + shade, 0.12f + shade);
+      draw_ground_tile(x, z, fminf(x + 0.5f, right), z + 0.5f, kGrassHeight);
+    }
+  }
+  glEnd();
+}
+
 void draw_road() {
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, road_texture.id);
   glColor3ub(255, 255, 255);
 
   glBegin(GL_QUADS);
-  glNormal3f(0, 1, 0);
-  glTexCoord2f(0, 0);
-  glVertex3f(-10, kRoadHeight, 8);
-  glTexCoord2f(0, 10);
-  glVertex3f(-10, kRoadHeight, -38);
-  glTexCoord2f(4, 10);
-  glVertex3f(10, kRoadHeight, -38);
-  glTexCoord2f(4, 0);
-  glVertex3f(10, kRoadHeight, 8);
+  for (GLfloat x = -5; x < 5; x += 0.5f) {
+    for (GLfloat z = -38; z < 8; z += 0.5f) {
+      draw_ground_tile(x, z, x + 0.5f, z + 0.5f, kRoadHeight, 0.22f);
+    }
+  }
   glEnd();
 
   glDisable(GL_TEXTURE_2D);
+  glBegin(GL_QUADS);
+  glColor3f(0.95f, 0.78f, 0.18f);
+  for (int z = -37; z < 7; z += 4) {
+    draw_ground_tile(-0.06f, z, 0.06f, z + 2, kRoadHeight + 0.005f);
+  }
+  glColor3f(0.9f, 0.9f, 0.86f);
+  for (int z = -38; z < 8; ++z) {
+    draw_ground_tile(-4.7f, z, -4.6f, z + 1, kRoadHeight + 0.005f);
+    draw_ground_tile(4.6f, z, 4.7f, z + 1, kRoadHeight + 0.005f);
+  }
+  glEnd();
+  draw_sidewalk(-7.5f, -5.0f);
+  draw_sidewalk(5.0f, 7.5f);
+  draw_grass(-22.0f, -7.5f);
+  draw_grass(7.5f, 22.0f);
+  glColor3f(0.67f, 0.65f, 0.60f);
+  glBegin(GL_QUADS);
+  for (GLfloat x = -14; x < -7.5f; x += 0.5f) {
+    draw_ground_tile(x, -18.0f, x + 0.5f, -16.4f, kSidewalkHeight + 0.004f);
+  }
+  glEnd();
+}
+
+GLfloat model_ground_position(const GlbModel& scene_model, GLfloat scale, GLfloat ground) {
+  GLfloat minimum_y = std::numeric_limits<GLfloat>::max();
+  for (unsigned int i = 0; i < scene_model.scene->mNumMeshes; ++i) {
+    const aiMesh* mesh = scene_model.scene->mMeshes[i];
+    for (unsigned int j = 0; j < mesh->mNumVertices; ++j) {
+      minimum_y = fminf(minimum_y, mesh->mVertices[j].y);
+    }
+  }
+  return ground - (minimum_y - scene_model.center_y) * scene_model.normalization_scale * scale;
 }
 
 void draw_scene_object(const GlbModel& scene_model, GLfloat x, GLfloat y, GLfloat z,
@@ -349,15 +453,33 @@ void draw(GLFWwindow* window) {
   gluLookAt(camera_eye_x, camera_eye_y, camera_eye_z, camera_center_x, camera_center_y,
             camera_center_z, kCameraUpX, kCameraUpY, kCameraUpZ);
 
-  GLfloat light_position[] = {light_position_x, light_position_y, light_position_z, 1.0f};
-  glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+  for (int i = 0; i < kStreetLampCount; ++i) {
+    const GLenum light = GL_LIGHT0 + i;
+    if (street_light_enabled) {
+      glEnable(light);
+      GLfloat position[] = {street_lamps[i].x, kDefaultLightPositionY,
+                            street_lamps[i].z, 1.0f};
+      if (i == 0) {
+        position[0] = light_position_x;
+        position[1] = light_position_y;
+        position[2] = light_position_z;
+      }
+      glLightfv(light, GL_POSITION, position);
+    } else {
+      glDisable(light);
+    }
+  }
 
   draw_road();
-  draw_scene_object(street_lamp_model, -7.2f, 1.9f, -11.5f, kLampScale, 0, 180);
-  draw_scene_object(street_lamp_model, 7.2f, 1.9f, -11.5f, kLampScale);
-  draw_scene_object(traffic_cone_model, 2.3f, -0.15f, -7.8f, kConeScale);
+  for (const StreetLampPosition& lamp : street_lamps) {
+    draw_scene_object(street_lamp_model, lamp.x, lamp_ground_y, lamp.z,
+                      kLampScale, 0, lamp.rotation_y);
+  }
+  draw_scene_object(traffic_cone_model, 4.2f, cone_ground_y, -4.5f, kConeScale);
+  draw_scene_object(house_model, -14.0f, house_ground_y, -19.0f, kHouseScale, 0, 90);
 
-  glTranslatef(translate_x, translate_y, translate_z - kPerspectiveTranslateZ);
+  glTranslatef(kParkedCarPositionX + translate_x, translate_y,
+               translate_z - kPerspectiveTranslateZ);
   glRotatef(rotate_x, 1, 0, 0);
   glRotatef(rotate_y, 0, 1, 0);
   glRotatef(rotate_z, 0, 0, 1);
@@ -450,10 +572,16 @@ int main() {
 
   glEnable(GL_NORMALIZE);
 
-  GLfloat light_ambient[] = {0.20f, 0.20f, 0.20f, 1.0f};
-  GLfloat light_diffuse[] = {0.90f, 0.90f, 0.90f, 1.0f};
-  glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+  GLfloat light_ambient[] = {0.0f, 0.0f, 0.0f, 1.0f};
+  GLfloat light_diffuse[] = {1.15f, 1.00f, 0.78f, 1.0f};
+  for (int i = 0; i < kStreetLampCount; ++i) {
+    const GLenum light = GL_LIGHT0 + i;
+    glLightfv(light, GL_AMBIENT, light_ambient);
+    glLightfv(light, GL_DIFFUSE, light_diffuse);
+    glLightf(light, GL_CONSTANT_ATTENUATION, 1.0f);
+    glLightf(light, GL_LINEAR_ATTENUATION, 0.10f);
+    glLightf(light, GL_QUADRATIC_ATTENUATION, 0.045f);
+  }
   glClearColor(0.35f, 0.65f, 0.95f, 1.0f);
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -473,27 +601,34 @@ int main() {
 
   if (!load_texture_external(road_texture, "textures/aerial_asphalt_01_diff_1k.jpg") ||
       !load_model(street_lamp_model, "models/street_lamp/Street_Light_A_02.obj") ||
-      !load_model(traffic_cone_model, "models/traffic_cone.glb")) {
+      !load_model(traffic_cone_model, "models/traffic_cone.glb") ||
+      !load_model(house_model, "models/house.glb")) {
     destroy_model(model);
     destroy_model(street_lamp_model);
     destroy_model(traffic_cone_model);
+    destroy_model(house_model);
     glfwDestroyWindow(window);
     glfwTerminate();
     return EXIT_FAILURE;
   }
 
+  house_ground_y = model_ground_position(house_model, kHouseScale, kGrassHeight);
+  lamp_ground_y = model_ground_position(street_lamp_model, kLampScale, kSidewalkHeight);
+  cone_ground_y = model_ground_position(traffic_cone_model, kConeScale, kRoadHeight);
+
   if (!create_model_display_list(model) || !create_model_display_list(street_lamp_model) ||
-      !create_model_display_list(traffic_cone_model)) {
+      !create_model_display_list(traffic_cone_model) || !create_model_display_list(house_model)) {
     destroy_model(model);
     destroy_model(street_lamp_model);
     destroy_model(traffic_cone_model);
+    destroy_model(house_model);
     if (road_texture.id) glDeleteTextures(1, &road_texture.id);
     glfwDestroyWindow(window);
     glfwTerminate();
     return EXIT_FAILURE;
   }
 
-  glfwSetWindowTitle(window, "Cena 3D com luz movel - Aula 12");
+  glfwSetWindowTitle(window, "Cena 3D: rua, casa e poste de luz");
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   glfwSetCursorPosCallback(window, mouse_read);
 
@@ -512,6 +647,7 @@ int main() {
   destroy_model(model);
   destroy_model(street_lamp_model);
   destroy_model(traffic_cone_model);
+  destroy_model(house_model);
   if (road_texture.id) glDeleteTextures(1, &road_texture.id);
 
   glfwDestroyWindow(window);
