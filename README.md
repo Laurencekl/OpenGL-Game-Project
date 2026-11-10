@@ -23,17 +23,19 @@ O repositorio acompanha a evolucao das atividades da disciplina e servira como b
 
 - `F`: liga ou desliga as luzes dos seis postes.
 - `B`: alterna entre iluminacao ambiente normal e modo claro.
-- `C`: liga ou desliga a chuva e alterna a cor do ceu.
-- `P`: pausa ou continua o movimento das nuvens e da chuva.
 - Espaco: restaura a camera e as transformacoes do carro esportivo.
 
 Os postes permanecem fixos. O modo claro ajusta a iluminacao ambiente global; nao e uma lanterna ou uma luz movel.
+
+A chuva e as nuvens permanecem animadas continuamente, sem controles para desligar ou pausar. O ceu mantem o tom azulado de tempo chuvoso.
 
 ## Animacao da Aula 13
 
 A funcao `animate()` usa `glfwGetTime()` para calcular o tempo decorrido entre quadros (`delta_time`). As posicoes sao atualizadas por velocidade multiplicada por esse intervalo, seguindo a estrutura do exemplo da disciplina.
 
-As nuvens se deslocam horizontalmente e retornam ao outro lado ao sair da area. A chuva e formada por linhas desenhadas em OpenGL: as gotas descem e recebem novas posicoes no alto quando chegam ao chao. Desligar a chuva suspende seu desenho e movimento; pausar a animacao interrompe tambem o movimento das nuvens.
+As nuvens se deslocam horizontalmente e retornam ao outro lado ao sair da area. A chuva usa 1.600 particulas, distribuidas entre cinco nuvens (320 por nuvem). Cada gota guarda o indice da sua nuvem e deslocamentos relativos em X e Z. Sua posicao horizontal e calculada somando esses deslocamentos a posicao atual da nuvem, acompanhando seu movimento.
+
+A altura Y diminui conforme a velocidade de queda e o delta de tempo. Ao chegar ao chao, a gota e reciclada abaixo da mesma nuvem, dentro de uma regiao oval proporcional ao tamanho do modelo. As particulas sao desenhadas diretamente como linhas (`GL_LINES`); os modelos das nuvens usam Display Lists reutilizadas com transformacoes de posicao.
 
 ## Texturas e geometria
 

@@ -131,11 +131,7 @@ const GLfloat kHudWidth = 500;
 std::ostringstream hud_text;
 
 double last_time = 0;
-bool animations_paused = false;
-bool rain_enabled = true;
 bool bright_mode_enabled = false;
-bool p_key_was_pressed = false;
-bool c_key_was_pressed = false;
 bool b_key_was_pressed = false;
 const int kRainDropCount = 1600;
 
@@ -149,9 +145,12 @@ MovingCloud clouds[] = {
   {14, 12, -15, 2.4f, 0.60f},
   {-20, 13, -38, 2.4f, 0.55f}
 };
+const int kCloudCount = sizeof(clouds) / sizeof(clouds[0]);
+GLfloat cloud_bottom_y = -1.35f;
 
 struct RainDrop {
-  GLfloat x, y, z, speed, length;
+  GLfloat offset_x, y, offset_z, speed, length;
+  int cloud_index;
 };
 std::vector<RainDrop> rain_drops;
 std::mt19937 weather_random(13);
@@ -160,12 +159,25 @@ GLfloat random_weather_value(GLfloat minimum, GLfloat maximum) {
   return std::uniform_real_distribution<GLfloat>(minimum, maximum)(weather_random);
 }
 
+void reset_rain_drop(RainDrop& drop, bool distribute_height = false) {
+  const MovingCloud& cloud = clouds[drop.cloud_index];
+  const GLfloat angle = random_weather_value(0, 6.2831853f);
+  const GLfloat radius = std::sqrt(random_weather_value(0, 1));
+  drop.offset_x = std::cos(angle) * radius * cloud.scale * 1.25f;
+  drop.offset_z = std::sin(angle) * radius * cloud.scale * 2.10f;
+  const GLfloat top = fmaxf(kRoadHeight + 0.1f,
+      cloud.y + cloud_bottom_y * cloud.scale - drop.length - 0.05f);
+  drop.y = distribute_height ? random_weather_value(kRoadHeight, top) : top;
+}
+
 void initialize_weather() {
   rain_drops.resize(kRainDropCount);
-  for (RainDrop& drop : rain_drops) {
-    drop = {random_weather_value(-22, 22), random_weather_value(kRoadHeight, 15),
-            random_weather_value(-38, 8), random_weather_value(9, 14),
-            random_weather_value(0.22f, 0.40f)};
+  for (int i = 0; i < kRainDropCount; ++i) {
+    RainDrop& drop = rain_drops[i];
+    drop.cloud_index = i % kCloudCount;
+    drop.speed = random_weather_value(9, 14);
+    drop.length = random_weather_value(0.22f, 0.40f);
+    reset_rain_drop(drop, true);
   }
 }
 
@@ -224,18 +236,10 @@ void keyboard_read(GLFWwindow* window) {
   }
   f_key_was_pressed = f_key_is_pressed;
 
-  if (key_pressed_once(window, GLFW_KEY_P, p_key_was_pressed)) {
-    animations_paused = !animations_paused;
-  }
-  if (key_pressed_once(window, GLFW_KEY_C, c_key_was_pressed)) {
-    rain_enabled = !rain_enabled;
-  }
   if (key_pressed_once(window, GLFW_KEY_B, b_key_was_pressed)) {
     bright_mode_enabled = !bright_mode_enabled;
   }
-  hud_text << "C: chuva " << (rain_enabled ? "ON" : "OFF")
-           << " | P: " << (animations_paused ? "pausado" : "animando")
-           << " | B: claro " << (bright_mode_enabled ? "ON" : "OFF")
+  hud_text << "B: claro " << (bright_mode_enabled ? "ON" : "OFF")
            << " | F: postes " << (street_light_enabled ? "ON " : "OFF ");
 
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
@@ -369,26 +373,20 @@ void animate() {
   const double current_time = glfwGetTime();
   const double delta_time = current_time - last_time;
   last_time = current_time;
-  if (animations_paused) return;
 
   for (MovingCloud& cloud : clouds) {
     cloud.x += cloud.speed * delta_time;
     if (cloud.x > 30) cloud.x = -30 + std::fmod(cloud.x - 30, 60.0f);
   }
-  if (rain_enabled) {
-    for (RainDrop& drop : rain_drops) {
-      drop.y -= drop.speed * delta_time;
-      if (drop.y < kRoadHeight) {
-        drop.x = random_weather_value(-22, 22);
-        drop.y = random_weather_value(12, 15);
-        drop.z = random_weather_value(-38, 8);
-      }
+  for (RainDrop& drop : rain_drops) {
+    drop.y -= drop.speed * delta_time;
+    if (drop.y < kRoadHeight) {
+      reset_rain_drop(drop);
     }
   }
 }
 
 void draw_rain() {
-  if (!rain_enabled) return;
   glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT | GL_LINE_BIT |
                GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glDisable(GL_LIGHTING);
@@ -400,8 +398,11 @@ void draw_rain() {
   glColor4f(0.66f, 0.78f, 0.90f, 0.65f);
   glBegin(GL_LINES);
   for (const RainDrop& drop : rain_drops) {
-    glVertex3f(drop.x, drop.y, drop.z);
-    glVertex3f(drop.x + 0.04f, drop.y + drop.length, drop.z);
+    const MovingCloud& cloud = clouds[drop.cloud_index];
+    const GLfloat x = cloud.x + drop.offset_x;
+    const GLfloat z = cloud.z + drop.offset_z;
+    glVertex3f(x, drop.y, z);
+    glVertex3f(x + 0.04f, drop.y + drop.length, z);
   }
   glEnd();
   glPopAttrib();
@@ -707,7 +708,7 @@ int main() {
   glLightfv(GL_LIGHT7, GL_AMBIENT, light_ambient);
   glLightfv(GL_LIGHT7, GL_DIFFUSE, sky_diffuse);
   glEnable(GL_LIGHT7);
-  glClearColor(0.35f, 0.65f, 0.95f, 1.0f);
+  glClearColor(0.32f, 0.53f, 0.70f, 1.0f);
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   resize_window(window);
@@ -753,6 +754,7 @@ int main() {
   neymar_ground_y = model_ground_position(neymar_model, kNeymarScale, kSidewalkHeight + 0.004f);
   beetle_ground_y = model_ground_position(beetle_model, kBeetleScale, kGrassHeight);
   pikachu_ground_y = model_ground_position(pikachu_model, kPikachuScale, kGrassHeight);
+  cloud_bottom_y = -model_ground_position(cloud_model, 1, 0);
   for (auto& material : cloud_model.material_colors) {
     material.second = aiColor4D(0.78f, 0.80f, 0.83f, 1);
   }
@@ -787,11 +789,6 @@ int main() {
     keyboard_read(window);
     resize_window(window);
     animate();
-    if (rain_enabled) {
-      glClearColor(0.32f, 0.53f, 0.70f, 1);
-    } else {
-      glClearColor(0.35f, 0.65f, 0.95f, 1);
-    }
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     draw(window);
     draw_hud(window);
